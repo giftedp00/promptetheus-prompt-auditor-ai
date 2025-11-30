@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { ScoreCard } from "./ScoreCard";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2, Lightbulb, Sparkles } from "lucide-react";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
 
 interface EvaluationScore {
   clarity: number;
@@ -39,6 +40,19 @@ export const EvaluationResults = ({
     return "text-destructive";
   };
 
+  const radarData = [
+    { subject: "Clarity", value: scores.clarity, fullMark: 10 },
+    { subject: "Specificity", value: scores.specificity, fullMark: 10 },
+    { subject: "Completeness", value: scores.completeness, fullMark: 10 },
+    { subject: "Control", value: scores.control, fullMark: 10 },
+    { subject: "Stability", value: scores.stability, fullMark: 10 },
+    { subject: "Safety", value: scores.safety, fullMark: 10 },
+    { subject: "Hallucination Resist.", value: scores.hallucinationResistance, fullMark: 10 },
+    { subject: "Formatting", value: scores.formattingStrength, fullMark: 10 },
+    { subject: "Actionability", value: scores.actionability, fullMark: 10 },
+    { subject: "Domain Fit", value: scores.domainFit, fullMark: 10 },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6">
       {/* Summary */}
@@ -63,6 +77,35 @@ export const EvaluationResults = ({
             <span className="text-2xl text-muted-foreground">/100</span>
           </div>
         </div>
+      </Card>
+
+      {/* Radar Chart */}
+      <Card className="p-6 bg-gradient-card shadow-card border-border">
+        <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-primary" />
+          Score Visualization
+        </h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <RadarChart data={radarData}>
+            <PolarGrid stroke="hsl(var(--border))" />
+            <PolarAngleAxis 
+              dataKey="subject" 
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            />
+            <PolarRadiusAxis 
+              angle={90} 
+              domain={[0, 10]} 
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
+            <Radar 
+              name="Score" 
+              dataKey="value" 
+              stroke="hsl(var(--primary))" 
+              fill="hsl(var(--primary))" 
+              fillOpacity={0.6}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
       </Card>
 
       {/* Score Breakdown */}
