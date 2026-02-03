@@ -1,16 +1,48 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PromptInput } from "@/components/PromptInput";
 import { EvaluationResults } from "@/components/EvaluationResults";
-import { Zap, Github, Code2 } from "lucide-react";
+import { ComparisonPromptInput } from "@/components/ComparisonPromptInput";
+import { ComparisonResults } from "@/components/ComparisonResults";
+import { Zap, Github, Code2, GitCompare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface PromptEntry {
+  id: string;
+  name: string;
+  value: string;
+  color: string;
+}
+
 const Index = () => {
+  const [mode, setMode] = useState<"single" | "compare">("single");
   const [prompt, setPrompt] = useState("");
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [results, setResults] = useState<any>(null);
+  
+  // Comparison mode state
+  const [comparisonPrompts, setComparisonPrompts] = useState<PromptEntry[]>([
+    { id: crypto.randomUUID(), name: "Prompt 1", value: "", color: "hsl(189, 94%, 43%)" },
+    { id: crypto.randomUUID(), name: "Prompt 2", value: "", color: "hsl(280, 80%, 60%)" },
+  ]);
+  const [comparisonResults, setComparisonResults] = useState<any[]>([]);
+  
   const { toast } = useToast();
+
+  const generateMockScores = () => ({
+    clarity: Math.floor(Math.random() * 4) + 5,
+    specificity: Math.floor(Math.random() * 4) + 4,
+    completeness: Math.floor(Math.random() * 4) + 4,
+    control: Math.floor(Math.random() * 4) + 5,
+    stability: Math.floor(Math.random() * 4) + 5,
+    safety: Math.floor(Math.random() * 3) + 6,
+    hallucinationResistance: Math.floor(Math.random() * 4) + 5,
+    formattingStrength: Math.floor(Math.random() * 4) + 4,
+    actionability: Math.floor(Math.random() * 4) + 5,
+    domainFit: Math.floor(Math.random() * 3) + 6,
+  });
 
   const evaluatePrompt = async () => {
     if (!prompt.trim()) {
@@ -23,25 +55,16 @@ const Index = () => {
     }
 
     setIsEvaluating(true);
-
-    // Simulate evaluation (in real app, this would call an AI API)
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Mock results
+    const scores = generateMockScores();
+    const totalScore = Math.round(
+      Object.values(scores).reduce((a, b) => a + b, 0)
+    );
+
     const mockResults = {
-      scores: {
-        clarity: 7,
-        specificity: 6,
-        completeness: 5,
-        control: 6,
-        stability: 7,
-        safety: 8,
-        hallucinationResistance: 6,
-        formattingStrength: 5,
-        actionability: 7,
-        domainFit: 8,
-      },
-      totalScore: 65,
+      scores,
+      totalScore,
       summary:
         "The prompt shows good intent but lacks specific constraints and structure. It would benefit from more precise instructions, clearer formatting requirements, and explicit boundaries to reduce ambiguity and improve output consistency.",
       issues: [
@@ -67,6 +90,56 @@ const Index = () => {
     toast({
       title: "Evaluation Complete",
       description: "Your prompt has been analyzed successfully.",
+    });
+  };
+
+  const evaluateComparison = async () => {
+    const validPrompts = comparisonPrompts.filter((p) => p.value.trim());
+    
+    if (validPrompts.length < 2) {
+      toast({
+        title: "Not Enough Prompts",
+        description: "Please enter at least 2 prompts to compare.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEvaluating(true);
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    const results = validPrompts.map((prompt) => {
+      const scores = generateMockScores();
+      const totalScore = Math.round(
+        Object.values(scores).reduce((a, b) => a + b, 0)
+      );
+
+      return {
+        id: prompt.id,
+        name: prompt.name,
+        color: prompt.color,
+        scores,
+        totalScore,
+        summary: `${prompt.name} demonstrates ${totalScore >= 70 ? "strong" : totalScore >= 50 ? "moderate" : "weak"} prompt engineering principles with room for improvement in specificity and control.`,
+        issues: [
+          "Could use more specific constraints",
+          "Output format not clearly defined",
+          "Missing edge case handling",
+        ],
+        recommendations: [
+          "Add explicit output formatting",
+          "Include example responses",
+          "Define clear boundaries",
+        ],
+      };
+    });
+
+    setComparisonResults(results);
+    setIsEvaluating(false);
+
+    toast({
+      title: "Comparison Complete",
+      description: `${results.length} prompts have been analyzed and compared.`,
     });
   };
 
@@ -120,42 +193,91 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 pb-20">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* Input Section */}
-          <Card className="p-6 bg-gradient-card shadow-card border-border">
-            <PromptInput value={prompt} onChange={setPrompt} />
-            <div className="mt-6">
-              <Button
-                onClick={evaluatePrompt}
-                disabled={isEvaluating}
-                className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold shadow-glow"
-                size="lg"
-              >
-                {isEvaluating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                    Analyzing Prompt...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5 mr-2" />
-                    Evaluate Prompt
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
+          {/* Mode Tabs */}
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-secondary/50">
+              <TabsTrigger value="single" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Zap className="w-4 h-4" />
+                Single Evaluation
+              </TabsTrigger>
+              <TabsTrigger value="compare" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <GitCompare className="w-4 h-4" />
+                Compare Prompts
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Results Section */}
-          {results && (
-            <EvaluationResults
-              scores={results.scores}
-              totalScore={results.totalScore}
-              summary={results.summary}
-              issues={results.issues}
-              recommendations={results.recommendations}
-              optimizedPrompt={results.optimizedPrompt}
-            />
-          )}
+            {/* Single Evaluation Mode */}
+            <TabsContent value="single" className="mt-6 space-y-6">
+              <Card className="p-6 bg-gradient-card shadow-card border-border">
+                <PromptInput value={prompt} onChange={setPrompt} />
+                <div className="mt-6">
+                  <Button
+                    onClick={evaluatePrompt}
+                    disabled={isEvaluating}
+                    className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold shadow-glow"
+                    size="lg"
+                  >
+                    {isEvaluating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                        Analyzing Prompt...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5 mr-2" />
+                        Evaluate Prompt
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+
+              {results && (
+                <EvaluationResults
+                  scores={results.scores}
+                  totalScore={results.totalScore}
+                  summary={results.summary}
+                  issues={results.issues}
+                  recommendations={results.recommendations}
+                  optimizedPrompt={results.optimizedPrompt}
+                />
+              )}
+            </TabsContent>
+
+            {/* Comparison Mode */}
+            <TabsContent value="compare" className="mt-6 space-y-6">
+              <Card className="p-6 bg-gradient-card shadow-card border-border">
+                <ComparisonPromptInput
+                  prompts={comparisonPrompts}
+                  onPromptsChange={setComparisonPrompts}
+                />
+                <div className="mt-6">
+                  <Button
+                    onClick={evaluateComparison}
+                    disabled={isEvaluating || comparisonPrompts.filter((p) => p.value.trim()).length < 2}
+                    className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold shadow-glow"
+                    size="lg"
+                  >
+                    {isEvaluating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                        Comparing Prompts...
+                      </>
+                    ) : (
+                      <>
+                        <GitCompare className="w-5 h-5 mr-2" />
+                        Compare Prompts
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+
+              {comparisonResults.length > 0 && (
+                <ComparisonResults results={comparisonResults} />
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
