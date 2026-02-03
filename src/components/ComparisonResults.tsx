@@ -1,6 +1,8 @@
+import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle2, Lightbulb, Sparkles, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle2, Download, FileImage, Lightbulb, Sparkles, Trophy } from "lucide-react";
 import {
   RadarChart,
   PolarGrid,
@@ -11,6 +13,9 @@ import {
   Legend,
   Tooltip,
 } from "recharts";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
+import { useToast } from "@/hooks/use-toast";
 
 interface EvaluationScore {
   clarity: number;
@@ -41,10 +46,77 @@ interface ComparisonResultsProps {
 }
 
 export const ComparisonResults = ({ results }: ComparisonResultsProps) => {
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+
   const getTotalScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
     if (score >= 60) return "text-warning";
     return "text-destructive";
+  };
+
+  const exportAsImage = async () => {
+    if (!exportRef.current) return;
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        backgroundColor: "#0a0a0f",
+        quality: 1,
+        pixelRatio: 2,
+      });
+      const link = document.createElement("a");
+      link.download = `prompt-comparison-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({
+        title: "Image Exported",
+        description: "Comparison results saved as PNG.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportAsPDF = async () => {
+    if (!exportRef.current) return;
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        backgroundColor: "#0a0a0f",
+        quality: 1,
+        pixelRatio: 2,
+      });
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => (img.onload = resolve));
+      
+      const pdf = new jsPDF({
+        orientation: img.width > img.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [img.width, img.height],
+      });
+      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      pdf.save(`prompt-comparison-${Date.now()}.pdf`);
+      toast({
+        title: "PDF Exported",
+        description: "Comparison results saved as PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Build radar data with all prompts
@@ -106,7 +178,31 @@ export const ComparisonResults = ({ results }: ComparisonResultsProps) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6">
-      {/* Score Comparison Summary */}
+      {/* Export Buttons */}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportAsImage}
+          disabled={isExporting}
+          className="gap-2"
+        >
+          <FileImage className="w-4 h-4" />
+          Export as Image
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportAsPDF}
+          disabled={isExporting}
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export as PDF
+        </Button>
+      </div>
+
+      <div ref={exportRef} className="space-y-6 p-1">
       <Card className="p-6 bg-gradient-card shadow-card border-border">
         <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
           <Trophy className="w-5 h-5 text-warning" />
@@ -342,6 +438,7 @@ export const ComparisonResults = ({ results }: ComparisonResultsProps) => {
           </div>
         </Card>
       ))}
+      </div>
     </div>
   );
 };
